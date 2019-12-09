@@ -25,6 +25,10 @@ ExportedObj/
 *.opendb
 *.VC.db
 
+# Auto generated files from Rider
+*.idea 
+
+
 # Unity3D generated meta files
 *.pidb.meta
 *.pdb.meta
