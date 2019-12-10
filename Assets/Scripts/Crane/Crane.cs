@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
 using UnityEngine;
+using DG.Tweening;
 using Random = UnityEngine.Random;
 
 public class Crane : MonoBehaviour
@@ -15,7 +14,7 @@ public class Crane : MonoBehaviour
     [SerializeField] private GameObject cage;
     [SerializeField] private float timeToDrop = 2f;
     [SerializeField] private float timeToLift = 1f;
-    [SerializeField] private float timeToWait = 0.01f;
+    [SerializeField] private float timeToMove = 3f;
     [SerializeField] private float timeToWaitAtBottom = 0.5f;
     [SerializeField] private GameObject placePosition;
     [SerializeField] private GameObject collectPosition;
@@ -33,6 +32,9 @@ public class Crane : MonoBehaviour
     
     private bool _placed = false;
     private bool _collected = false;
+
+    private Tween _dropTween;
+    private Tween _liftTween;
 
     private void SetCage()
     {
@@ -60,70 +62,64 @@ public class Crane : MonoBehaviour
         }
     }
 
-    private IEnumerator Drop()
+    private void Drop()
     {
         SetCage();
-        float dropTime = 0;
-        while (dropTime < timeToDrop)
-        {
-            var t = dropTime / timeToDrop;
-            cage.transform.position = Vector3.Lerp(_cagePosStart, _cagePosEnd, t);
-            yield return new WaitForSeconds(timeToWait);
-            dropTime += timeToWait;
-        }
-
-        cage.transform.position = _cagePosEnd;
-        yield break;
+        _dropTween = transform.DOMove(_cagePosEnd, timeToDrop);
+        _dropTween.onComplete += OnCompleteDrop;
     }
 
-    private IEnumerator Lift()
+    private void OnCompleteDrop()
     {
-        float dropTime = 0;
-        while (dropTime < timeToLift)
-        {
-            var t = dropTime / timeToLift;
-            cage.transform.position = Vector3.Lerp(_cagePosEnd, _cagePosStart, t);
-            yield return new WaitForSeconds(timeToWait);
-            dropTime += timeToWait;
-        }
-
-        cage.transform.position = _cagePosStart;
-        yield break;
+        
     }
 
+    private void Lift()
+    {
+        _liftTween = transform.DOMove(_cagePosStart, timeToLift);
+        _liftTween.onComplete += OnCompleteLift;
+    }
+
+    private void OnCompleteLift()
+    {
+        
+    }
+
+    //coroutine to determine how the crane goes through its drop sequence
     private IEnumerator PlaceRoutine()
     {
-        SoundController.instance.RandomPitchandsfx(clip);
-        float dropTime = 0;
-        yield return StartCoroutine(nameof(Drop));
+        SoundController.instance.RandomPitchandsfx(clip);//sound effects played 
+        
+        Drop(); //drops the crane
+        yield return new WaitForSeconds(timeToDrop); //waits till the crane is at the bottom
 
-        var check = CheckCollect();
-        yield return new WaitForSeconds(timeToWaitAtBottom);
+        var check = CheckCollect(); //checks if there are any slimes that can be picked up
+        yield return new WaitForSeconds(timeToWaitAtBottom); //waits while at the bottom 
 
-        yield return StartCoroutine(nameof(Lift));
+        Lift(); //lifts crane up
+        yield return new WaitForSeconds(timeToLift);//waits till the crane is at the top
 
-        if (!check)
+        if (!check)//if no blobs are collected, end routine
         {
             _placed = false;
             yield break;
         }
-        var pos = transform.position;
-        dropTime = 0;
-        while (dropTime < timeToLift*4)
-        {
-            var t = dropTime / (timeToLift*4);
-            transform.position = Vector3.Lerp(pos, placePosition.transform.position + Vector3.up * 8f, t);
-            yield return new WaitForSeconds(timeToWait);
-            dropTime += timeToWait;
-        }
-            
-        yield return StartCoroutine(nameof(Drop));
-        foreach (var blob in _blobs)
+
+        transform.DOMove(placePosition.transform.position + Vector3.up * 8f, timeToMove);//moves the crane to the pen position
+        yield return new WaitForSeconds(timeToMove);//waits till the crane is at the pen
+        
+        Drop(); //drops crane
+        yield return new WaitForSeconds(timeToDrop);//waits till at the bottom
+        
+        foreach (var blob in _blobs)//drops each blob
         {
             blob.GetComponent<Blob>().Place();
         }
-        yield return new WaitForSeconds(timeToWaitAtBottom);
-        yield return StartCoroutine(nameof(Lift));
+        
+        yield return new WaitForSeconds(timeToWaitAtBottom);//waits at the bottom
+        Lift();//lifts crane
+        yield return new WaitForSeconds(timeToLift);//waits till crane is lifted
+        
         _placed = false;
     }
 
@@ -161,6 +157,7 @@ public class Crane : MonoBehaviour
 
     private void Move()
     {
+        _move.Normalize();
         transform.position = Vector3.Lerp(transform.position, transform.position + _move, Time.deltaTime * lerpSpeed);
         float xClamp = Mathf.Clamp(transform.position.x, -bounds.x, bounds.x);
         float zClamp = Mathf.Clamp(transform.position.z, -bounds.y, bounds.y);
