@@ -8,19 +8,19 @@ using Random = UnityEngine.Random;
 public class Crane : MonoBehaviour
 {
     [SerializeField] private AudioClip clip;
-    [SerializeField] private Vector2 bounds;
 
-    [SerializeField] private float lerpSpeed = 10f;
     [SerializeField] private GameObject cage;
+    
     [SerializeField] private float timeToDrop = 2f;
     [SerializeField] private float timeToLift = 1f;
     [SerializeField] private float timeToMove = 3f;
     [SerializeField] private float timeToWaitAtBottom = 0.5f;
+    
     [SerializeField] private GameObject placePosition;
     [SerializeField] private GameObject collectPosition;
-    [SerializeField] private float rotationSpeed = 5f;
+    
+    [SerializeField] private CraneMovement _movement;
 
-    private Vector3 _move = Vector3.zero;
     private Vector3 _cagePosStart = Vector3.zero;
     private Vector3 _cagePosEnd = Vector3.zero;
 
@@ -36,35 +36,34 @@ public class Crane : MonoBehaviour
     private Tween _dropTween;
     private Tween _liftTween;
 
+    private void Awake()
+    {
+        _movement.CanMove = true;
+        _movement.cage = cage;
+    }
+
     private void SetCage()
     {
-        _cagePosStart = cage.transform.position;
+        _cagePosStart = cage.transform.position + Vector3.up;
         _cagePosEnd = _cagePosStart;
-        _cagePosEnd.y = 0;
+        _cagePosEnd.y = 1f;
     }
 
     private void Update()
     {
-        _move.x = Input.GetAxisRaw("Horizontal");
-        _move.z = Input.GetAxisRaw("Vertical");
-
         if (Input.GetKeyDown(KeyCode.Space) && _placed == false)
         {
             _placed = true;
             SetCage();
             StartCoroutine(nameof(PlaceRoutine));
         }
-
-        if (!_placed)
-        {
-            if (Math.Abs(_move.x) > 0.1f || Math.Abs(_move.z) > 0.1f)
-                Move();
-        }
     }
 
+    //drops the cage to the bottom
     private void Drop()
     {
         SetCage();
+        //Debug.LogFormat("Start Pos: {0}, End Pos: {1}",_cagePosStart, _cagePosEnd);
         _dropTween = transform.DOMove(_cagePosEnd, timeToDrop);
         _dropTween.onComplete += OnCompleteDrop;
     }
@@ -74,6 +73,7 @@ public class Crane : MonoBehaviour
         
     }
 
+    //lifts the cage to the top
     private void Lift()
     {
         _liftTween = transform.DOMove(_cagePosStart, timeToLift);
@@ -88,6 +88,9 @@ public class Crane : MonoBehaviour
     //coroutine to determine how the crane goes through its drop sequence
     private IEnumerator PlaceRoutine()
     {
+        
+        _movement.CanMove = false; //cant move crane
+        
         SoundController.instance.RandomPitchandsfx(clip);//sound effects played 
         
         Drop(); //drops the crane
@@ -102,6 +105,7 @@ public class Crane : MonoBehaviour
         if (!check)//if no blobs are collected, end routine
         {
             _placed = false;
+            _movement.CanMove = true;
             yield break;
         }
 
@@ -119,7 +123,7 @@ public class Crane : MonoBehaviour
         yield return new WaitForSeconds(timeToWaitAtBottom);//waits at the bottom
         Lift();//lifts crane
         yield return new WaitForSeconds(timeToLift);//waits till crane is lifted
-        
+        _movement.CanMove = true;
         _placed = false;
     }
 
@@ -145,7 +149,7 @@ public class Crane : MonoBehaviour
             var collectable = b.canCollect(numCollectable);
             if (!collectable) continue;
             children.Add(obj.gameObject);
-            Debug.Log(obj.name);
+            //Debug.Log(obj.name);
             obj.GetComponent<Blob>().PickUp();
             rand.y = 0;
             obj.transform.position = collectPosition.transform.position + rand;
@@ -153,21 +157,6 @@ public class Crane : MonoBehaviour
         }
 
         return children.Count > 0;
-    }
-
-    private void Move()
-    {
-        _move.Normalize();
-        transform.position = Vector3.Lerp(transform.position, transform.position + _move, Time.deltaTime * lerpSpeed);
-        float xClamp = Mathf.Clamp(transform.position.x, -bounds.x, bounds.x);
-        float zClamp = Mathf.Clamp(transform.position.z, -bounds.y, bounds.y);
-        Vector3 newPos = transform.position;
-        newPos.x = xClamp;
-        newPos.z = zClamp;
-        transform.position = newPos;
-
-        if(_move != Vector3.zero)
-            cage.transform.rotation = Quaternion.Slerp(cage.transform.rotation, Quaternion.LookRotation(_move.normalized), Time.deltaTime * rotationSpeed);
     }
 
     private void OnDrawGizmosSelected()
