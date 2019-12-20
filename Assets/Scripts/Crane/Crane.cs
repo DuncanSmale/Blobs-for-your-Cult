@@ -19,7 +19,7 @@ public class Crane : MonoBehaviour
     [SerializeField] private GameObject placePosition;
     [SerializeField] private GameObject collectPosition;
     
-    [SerializeField] private CraneMovement _movement;
+    [SerializeField] private CraneMovement movement;
 
     private Vector3 _cagePosStart = Vector3.zero;
     private Vector3 _cagePosEnd = Vector3.zero;
@@ -38,8 +38,8 @@ public class Crane : MonoBehaviour
 
     private void Awake()
     {
-        _movement.CanMove = true;
-        _movement.cage = cage;
+        movement.CanMove = true;
+        movement.cage = cage;
     }
 
     private void SetCage()
@@ -89,7 +89,7 @@ public class Crane : MonoBehaviour
     private IEnumerator PlaceRoutine()
     {
         
-        _movement.CanMove = false; //cant move crane
+        movement.CanMove = false; //cant move crane
         
         SoundController.instance.RandomPitchandsfx(clip);//sound effects played 
         
@@ -105,7 +105,7 @@ public class Crane : MonoBehaviour
         if (!check)//if no blobs are collected, end routine
         {
             _placed = false;
-            _movement.CanMove = true;
+            movement.CanMove = true;
             yield break;
         }
 
@@ -123,7 +123,7 @@ public class Crane : MonoBehaviour
         yield return new WaitForSeconds(timeToWaitAtBottom);//waits at the bottom
         Lift();//lifts crane
         yield return new WaitForSeconds(timeToLift);//waits till crane is lifted
-        _movement.CanMove = true;
+        movement.CanMove = true;
         _placed = false;
     }
 
